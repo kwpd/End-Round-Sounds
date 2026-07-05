@@ -17,6 +17,9 @@ pluging, EndRoundSounds.amxx -----> cstrike/amxmodx/plugins/
 pluging.ini, EndRoundSounds.amxx -----> cstrike/amxmodx/configs/plugins.ini  
   
 Change Log  
+*Version 1.0.3  
+Change too INI For TXT  
+
 *Version 1.0.2  
 Add File Play Sound Terroris WIN  
 Add File Play Sound CTs WIN  
