@@ -5,7 +5,7 @@
 
 
 #define PLUGIN 	"End Round Sounds"
-#define VERSION "1.0.2"
+#define VERSION "1.0.3"
 #define AUTHOR 	"kwpd"
 
 #define MAX_SONGS	100
@@ -55,7 +55,7 @@ public plugin_precache(){
 	
 	new songdir2[64]
 	get_configsdir(configsdir,199)
-	format(configfile,199,"%s/EndRoundSounds/EndRoundSounds_precache.ini",configsdir)
+	format(configfile,199,"%s/EndRoundSounds/EndRoundSounds_precache.txt",configsdir)
 	new trash
 	for(new i=0;i<MAX_SONGS;i++)
 	{
@@ -109,7 +109,7 @@ public p_music_terroris()
 {
 	new archivoDir[128];
 	get_configsdir(archivoDir, charsmax(archivoDir));
-	format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/1_play_Sounds_Terroris_WIN.ini", archivoDir);
+	format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/1_play_Sounds_Terroris_WIN.txt", archivoDir);
 	
 	if((get_pcvar_num(pcvar_t2) == 1))
 	{
@@ -283,7 +283,7 @@ public p_music_counter_terroris()
 {
 	new archivoDir[128];
 	get_configsdir(archivoDir, charsmax(archivoDir));
-	format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/2_play_Sounds_CTs_WIN.ini", archivoDir);
+	format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/2_play_Sounds_CTs_WIN.txt", archivoDir);
 	
 	if((get_pcvar_num(pcvar_ct2) == 1))
 	{
