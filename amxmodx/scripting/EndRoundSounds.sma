@@ -5,7 +5,7 @@
 
 
 #define PLUGIN 	"End Round Sounds"
-#define VERSION "1.0.3"
+#define VERSION "1.0.4"
 #define AUTHOR 	"kwpd"
 
 #define MAX_SONGS	100
@@ -22,6 +22,39 @@ new pcvar_t2
 new pcvar_ct2
 new pcvar_randon_terroris1
 new pcvar_randon_CTs1
+
+new const DefaultSounds[][] = {
+	"EndRoundSounds/T_win_01.mp3",
+	"EndRoundSounds/T_win_02.mp3",
+	"EndRoundSounds/T_win_03.mp3",
+	"EndRoundSounds/T_win_04.mp3",
+	"EndRoundSounds/T_win_05.mp3",
+	"EndRoundSounds/T_win_06.mp3",
+	"EndRoundSounds/T_win_07.mp3",
+	"EndRoundSounds/T_win_08.mp3",
+	"EndRoundSounds/T_win_09.mp3",
+	"EndRoundSounds/T_win_10.mp3",
+	"EndRoundSounds/T_win_11.mp3",
+	"EndRoundSounds/T_win_12.mp3",
+	"EndRoundSounds/T_win_13.mp3",
+	"EndRoundSounds/T_win_14.mp3",
+	"EndRoundSounds/T_win_15.mp3",
+	"EndRoundSounds/CT_win_01.mp3",
+	"EndRoundSounds/CT_win_02.mp3",
+	"EndRoundSounds/CT_win_03.mp3",
+	"EndRoundSounds/CT_win_04.mp3",
+	"EndRoundSounds/CT_win_05.mp3",
+	"EndRoundSounds/CT_win_06.mp3",
+	"EndRoundSounds/CT_win_07.mp3",
+	"EndRoundSounds/CT_win_08.mp3",
+	"EndRoundSounds/CT_win_09.mp3",
+	"EndRoundSounds/CT_win_10.mp3",
+	"EndRoundSounds/CT_win_11.mp3",
+	"EndRoundSounds/CT_win_12.mp3",
+	"EndRoundSounds/CT_win_13.mp3",
+	"EndRoundSounds/CT_win_14.mp3",
+	"EndRoundSounds/CT_win_15.mp3"
+}
 
 public plugin_init() 
 { 
@@ -51,58 +84,26 @@ public set_musict_default()
 	return PLUGIN_CONTINUE
 }
 
-public plugin_precache(){
-	
+public plugin_precache() {
 	new songdir2[64]
 	get_configsdir(configsdir,199)
 	format(configfile,199,"%s/EndRoundSounds/EndRoundSounds_precache.txt",configsdir)
 	new trash
-	for(new i=0;i<MAX_SONGS;i++)
-	{
+	for(new i=0;i<MAX_SONGS;i++) {
 		precached[i]=false
 		read_file(configfile,i,song[i],63,trash)
-		if(!equali(song[i][4],""))
-		{
+		if(!equali(song[i][4],"")) {
 			format(songdir[i],63,"EndRoundSounds/%s",song[i])
 			format(songdir2,63,"sound/EndRoundSounds/%s",song[i])
-			if(file_exists(songdir2))
-			{
+			if(file_exists(songdir2)) {
 				precached[i]=true
 				precache_sound(songdir[i])
 			}
 		}
 	}
-	precache_sound("EndRoundSounds/T_win_01.mp3")
-	precache_sound("EndRoundSounds/T_win_02.mp3")
-	precache_sound("EndRoundSounds/T_win_03.mp3")
-	precache_sound("EndRoundSounds/T_win_04.mp3")
-	precache_sound("EndRoundSounds/T_win_05.mp3")
-	precache_sound("EndRoundSounds/T_win_06.mp3")
-	precache_sound("EndRoundSounds/T_win_07.mp3")
-	precache_sound("EndRoundSounds/T_win_08.mp3")
-	precache_sound("EndRoundSounds/T_win_09.mp3")
-	precache_sound("EndRoundSounds/T_win_10.mp3")
-	precache_sound("EndRoundSounds/T_win_11.mp3")
-	precache_sound("EndRoundSounds/T_win_12.mp3")
-	precache_sound("EndRoundSounds/T_win_13.mp3")
-	precache_sound("EndRoundSounds/T_win_14.mp3")
-	precache_sound("EndRoundSounds/T_win_15.mp3")
-	precache_sound("EndRoundSounds/CT_win_01.mp3")
-	precache_sound("EndRoundSounds/CT_win_02.mp3")
-	precache_sound("EndRoundSounds/CT_win_03.mp3")
-	precache_sound("EndRoundSounds/CT_win_04.mp3")
-	precache_sound("EndRoundSounds/CT_win_05.mp3")
-	precache_sound("EndRoundSounds/CT_win_06.mp3")
-	precache_sound("EndRoundSounds/CT_win_07.mp3")
-	precache_sound("EndRoundSounds/CT_win_08.mp3")
-	precache_sound("EndRoundSounds/CT_win_09.mp3")
-	precache_sound("EndRoundSounds/CT_win_10.mp3")
-	precache_sound("EndRoundSounds/CT_win_11.mp3")
-	precache_sound("EndRoundSounds/CT_win_12.mp3")
-	precache_sound("EndRoundSounds/CT_win_13.mp3")
-	precache_sound("EndRoundSounds/CT_win_14.mp3")
-	precache_sound("EndRoundSounds/CT_win_15.mp3")
-	return PLUGIN_CONTINUE
+	for(new i = 0; i < sizeof(DefaultSounds); i++) {
+		precache_sound(DefaultSounds[i]);
+	}
 }
 
 public p_music_terroris()
