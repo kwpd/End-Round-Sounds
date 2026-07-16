@@ -17,6 +17,11 @@ pluging, EndRoundSounds.amxx -----> cstrike/amxmodx/plugins/
 pluging.ini, EndRoundSounds.amxx -----> cstrike/amxmodx/configs/plugins.ini  
   
 Change Log  
+*Version 1.0.4  
+Test precache custon = .txt  
+Test Play sound Terroris custon = .txt  
+Test Sounds Default = Ready....  
+  
 *Version 1.0.3  
 Change too INI For TXT  
 
