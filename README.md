@@ -1,37 +1,13 @@
-# End-Round-Sounds 
+End-Round-Sounds 
 Sonidos al finalizar las Rondas 
 https://forums.alliedmods.net/showthread.php?t=352837  
   
-Requirements  
-amxmodx  
-amxmisc  
-  
-Installation  
-  
-File, 1_play_Sounds_Terroris_WIN,ini -----> amxmodx/configs/EndRoundSounds  
-File, 2_play_Sounds_CTs_WIN,ini -----> amxmodx/configs/EndRoundSounds  
-File, EndRoundSounds_precache,ini -----> amxmodx/configs/EndRoundSounds  
-File, Sounds -----> cstrike/sound/EndRoundSounds  
-  
-pluging, EndRoundSounds.amxx -----> cstrike/amxmodx/plugins/  
-pluging.ini, EndRoundSounds.amxx -----> cstrike/amxmodx/configs/plugins.ini  
-  
-Change Log  
-*Version 1.0.4  
-Test precache custon = .txt  
-Test Play sound Terroris custon = .txt  
-Test Sounds Default = Ready....  
-  
-*Version 1.0.3  
-Change too INI For TXT  
+Cada vez que termine la rondas, el servidor enviara un comando de mp3 play
+total de 90 sonido, dividido en 3 archivo .txt
+30 para 1next.txt
+30 para 2next.txt
+30 para 3next.txt
 
-*Version 1.0.2  
-Add File Play Sound Terroris WIN  
-Add File Play Sound CTs WIN  
-Add File Precache --> EndRoundSounds_precache  
-  
-*Version 1.0.1  
-Fix CTs end return PLUGIN_  
-  
-*Version 1.0.0  
-Initial Release  
+los sonido son rotativos, cada vez que cambia de mapas..
+Puedes modificar por los sonido a su gusto y el formato tiene que ser
+MP3 320 kbps
