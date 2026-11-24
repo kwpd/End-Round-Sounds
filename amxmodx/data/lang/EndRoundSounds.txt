@@ -1,0 +1,20 @@
+[en]
+ERS_CFG_NOT_FOUND = [EndRoundSounds] Configuration file not found: %s
+ERS_CFG_OPEN_ERR = [EndRoundSounds] Could not open configuration file: %s
+ERS_SND_NOT_FOUND = [EndRoundSounds] Sound file not found: %s
+ERS_SND_BAD_FORMAT = [EndRoundSounds] Unsupported audio format (use .mp3 or .wav): %s
+ERS_NO_VALID_SOUNDS = [EndRoundSounds] No valid sounds were loaded from %s
+
+[es]
+ERS_CFG_NOT_FOUND = [EndRoundSounds] No se encontro el archivo de configuracion: %s
+ERS_CFG_OPEN_ERR = [EndRoundSounds] No se pudo abrir el archivo: %s
+ERS_SND_NOT_FOUND = [EndRoundSounds] Sonido no encontrado: %s
+ERS_SND_BAD_FORMAT = [EndRoundSounds] Formato no soportado (use .mp3 o .wav): %s
+ERS_NO_VALID_SOUNDS = [EndRoundSounds] No se cargaron sonidos validos desde %s
+
+[bp]
+ERS_CFG_NOT_FOUND = [EndRoundSounds] Arquivo de configuracao nao encontrado: %s
+ERS_CFG_OPEN_ERR = [EndRoundSounds] Nao foi possivel abrir o arquivo: %s
+ERS_SND_NOT_FOUND = [EndRoundSounds] Som nao encontrado: %s
+ERS_SND_BAD_FORMAT = [EndRoundSounds] Formato nao suportado (use .mp3 ou .wav): %s
+ERS_NO_VALID_SOUNDS = [EndRoundSounds] Nenhum som valido foi carregado de %s
