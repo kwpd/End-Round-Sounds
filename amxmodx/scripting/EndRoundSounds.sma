@@ -4,185 +4,356 @@
 #include <amxmisc>
 
 #define PLUGIN 	"End Round Sounds"
-#define VERSION "2.2.0"
-#define AUTHOR 	"Google Gemini, kwpd"
+#define VERSION "3.1.0"
+#define AUTHOR 	"kwpd & Gemini 4"
 
-new Array:g_aSounds_download
-new pcvar_next
-new pcvar_randon_music
-new pcvar_maps
+#if !defined Invalid_Trie
+	#define Invalid_Trie (Trie:0)
+#endif
 
-public plugin_init() {
-	register_plugin(PLUGIN, VERSION, AUTHOR)
-	register_logevent("Round_End", 2, "1=Round_End")
-	pcvar_next = register_cvar("next_music", "0")
-	pcvar_randon_music = register_cvar("music_random", "1")
-	pcvar_maps = register_cvar("next_maps_music", "1")
-	set_musict_default()
-}
+#define MAX_SOUND_LEN 64
+#define SOUND_SUBDIR  "EndRoundSounds"
+#define CONFIG_FILE   "EndRoundSounds/next_win.txt"
+#define STATE_FILE    "endroundsounds_state.ini"
 
-public set_musict_default()
-{
-	set_cvar_num("next_music", 0)
-	set_cvar_num("music_random", 1)
-	
-	return PLUGIN_CONTINUE
-}
+#define PUG_STATUS_LIVE      0
+#define PUG_STAGE_FIRSTHALF  3
+#define PUG_STAGE_SECONDHALF 5
+#define PUG_STAGE_OVERTIME   6
+
+new Array:g_aSounds
+new Array:g_aQueue
+new Array:g_aPlayed
+new Trie:g_tValidSounds
+
+new g_iTotalSounds
+new g_szLastSound[MAX_SOUND_LEN]
+new g_szStateFile[192]
+new g_pCvarEnable
+new g_pCvarPugOnly
 
 public plugin_precache()
 {
-	g_aSounds_download = ArrayCreate(64)
-	
-	pcvar_maps = register_cvar("next_maps_music", "1")
-	new current_num = get_pcvar_num(pcvar_maps)
-	
-	if (current_num < 1 || current_num > 3)
-		current_num = 1
-	
-	new configsdir[128], file_download[192]
-	get_configsdir(configsdir, charsmax(configsdir))
-	
-	// Precargar las 3 listas existentes (1, 2 y 3)
-	for (new i = 1; i <= 3; i++)
-	{
-		formatex(file_download, charsmax(file_download), "%s/EndRoundSounds/%dnext_win.txt", configsdir, i)
-		
-		// Solo guardamos en la RAM (Array) la lista del mapa actual (current_num)
-		new bool:es_mapa_actual = (i == current_num)
-		
-		cargar_y_precargar_sonidos(file_download, g_aSounds_download, es_mapa_actual)
-	}
+	register_dictionary("EndRoundSounds.txt")
+
+	g_aSounds = ArrayCreate(MAX_SOUND_LEN)
+	g_aQueue = ArrayCreate(MAX_SOUND_LEN)
+	g_aPlayed = ArrayCreate(MAX_SOUND_LEN)
+	g_tValidSounds = TrieCreate()
+
+	new szDataDir[128]
+	get_datadir(szDataDir, charsmax(szDataDir))
+	formatex(g_szStateFile, charsmax(g_szStateFile), "%s/%s", szDataDir, STATE_FILE)
+
+	LoadSounds()
+	LoadStateAndBuildQueue()
 }
 
-stock cargar_y_precargar_sonidos(const file_path[], Array:sound_array, bool:guardar_en_memoria)
+public plugin_init()
 {
-	if (!file_exists(file_path))
-		return
-	
-	new file_handle = fopen(file_path, "rt")
-	if (!file_handle)
-		return
-	
-	new song_line[64], song_dir_full[128], song_dir_precache[128]
-	
-	while (!feof(file_handle))
-	{
-		fgets(file_handle, song_line, charsmax(song_line))
-		trim(song_line)
-		
-		// Ignorar líneas vacías o comentarios
-		if (song_line[0] == EOS || song_line[0] == ';' || song_line[0] == '#')
-			continue
-		
-		formatex(song_dir_full, charsmax(song_dir_full), "sound/EndRoundSounds/%s", song_line)
-		
-		if (file_exists(song_dir_full))
-		{
-			// Precarga universal de audio
-			if (containi(song_line, ".mp3") != -1)
-			{
-				precache_generic(song_dir_full)
-			}
-			else if (containi(song_line, ".wav") != -1)
-			{
-				formatex(song_dir_precache, charsmax(song_dir_precache), "EndRoundSounds/%s", song_line)
-				precache_sound(song_dir_precache)
-			}
-			
-			// Si pertenece a la lista actual, se almacena para reproducir en este mapa
-			if (guardar_en_memoria && sound_array != Invalid_Array)
-			{
-				ArrayPushString(sound_array, song_line)
-			}
-		}
-	}
-	
-	fclose(file_handle)
+	register_plugin(PLUGIN, VERSION, AUTHOR)
+	register_logevent("OnRoundEnd", 2, "1=Round_End")
+	register_logevent("OnRoundDraw", 3, "2=triggered", "3=Round_Draw")
+	register_event("TextMsg", "OnRoundDraw", "a", "2=#Round_Draw")
+	g_pCvarEnable = register_cvar("ers_enable", "1")
+	g_pCvarPugOnly = register_cvar("ers_pug_only", "1")
 }
 
 public plugin_end()
 {
-	new num = get_pcvar_num(pcvar_maps)
-	switch (num)
-	{
-		case 1: num = 2
-		case 2: num = 3
-		default: num = 1 // Si es 3 (o cualquier otro valor fuera de rango), vuelve a 1
-	}
-	set_cvar_num("next_maps_music", num)
+	if (g_aSounds != Invalid_Array)
+		ArrayDestroy(g_aSounds)
+	if (g_aQueue != Invalid_Array)
+		ArrayDestroy(g_aQueue)
+	if (g_aPlayed != Invalid_Array)
+		ArrayDestroy(g_aPlayed)
+	if (g_tValidSounds != Invalid_Trie)
+		TrieDestroy(g_tValidSounds)
+}
+
+public OnRoundEnd()
+{
+	if (get_pcvar_num(g_pCvarPugOnly) && IsPugLoaded())
+		return PLUGIN_CONTINUE
+
+	PlayNextRoundSound()
 	return PLUGIN_CONTINUE
 }
 
-public p_music_win()
+// Forward oficial del sistema PUG: solo se dispara al finalizar rondas validas en vivo
+public pug_round_end(winner)
 {
-	new archivoDir[128];
-	get_configsdir(archivoDir, charsmax(archivoDir));
-	
-	// Selección del archivo de configuración según el mapa actual
-	switch(get_pcvar_num(pcvar_maps))
-	{
-		case 1: format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/1next_win.txt", archivoDir);
-		case 2: format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/2next_win.txt", archivoDir);
-		case 3: format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/3next_win.txt", archivoDir);
-		default: format(archivoDir, charsmax(archivoDir), "%s/EndRoundSounds/1next_win.txt", archivoDir);
-	}
-	
-	// Obtenemos el valor actual del cvar y calculamos la línea exacta (restando 1 porque read_file empieza en 0)
-	new current_index = get_pcvar_num(pcvar_next) - 1;
-	
-	if (current_index >= 0)
-	{
-		new texto[128], len;
-		
-		// read_file lee directamente la línea solicitada de forma eficiente
-		if (read_file(archivoDir, current_index, texto, charsmax(texto), len) && len > 0)
-		{
-			trim(texto);
-			// Limpiamos espacios o saltos de línea sobrantes
-			
-			// Obtenemos únicamente a los jugadores reales conectados (excluyendo bots y HLTV)
-			new players[32], pnum;
-			get_players(players, pnum, "ch");
-			
-			for (new i = 0; i < pnum; i++)
-			{
-				new id = players[i];
-				client_cmd(id, "mp3 stop; mp3 play sound/EndRoundSounds/%s", texto);
-			}
-		}
-	}
-	
-	return PLUGIN_CONTINUE;
+	if (winner <= 0 || !get_pcvar_num(g_pCvarPugOnly))
+		return PLUGIN_CONTINUE
+
+	PlayNextRoundSound()
+	return PLUGIN_CONTINUE
 }
 
-public Round_End()
+// Empate en vivo dentro del PUG (Round_Draw no dispara pug_round_end porque winner == 0)
+public OnRoundDraw()
 {
-	// Modo Aleatorio (Random)
-	if (get_pcvar_num(pcvar_randon_music))
+	if (!get_pcvar_num(g_pCvarPugOnly) || !IsPugLive())
+		return PLUGIN_CONTINUE
+
+	static Float:flLastDrawTime
+	new Float:flNow = get_gametime()
+	if (flNow - flLastDrawTime < 1.0)
+		return PLUGIN_CONTINUE
+	flLastDrawTime = flNow
+
+	PlayNextRoundSound()
+	return PLUGIN_CONTINUE
+}
+
+PlayNextRoundSound()
+{
+	if (!g_iTotalSounds || !get_pcvar_num(g_pCvarEnable))
+		return
+
+	new players[32], pnum
+	get_players(players, pnum, "ch")
+	if (!pnum)
+		return
+
+	new iQueueSize = ArraySize(g_aQueue)
+	if (iQueueSize <= 0)
 	{
-		// Selecciona un número al azar del 1 al 30 de forma directa y limpia
-		new rand = random_num(1, 30);
-		
-		set_cvar_num("music_random", 0);
-		set_cvar_num("next_music", rand);
-		
-		p_music_win();
-		return PLUGIN_CONTINUE;
+		ArrayClear(g_aPlayed)
+		RefillQueue()
+		iQueueSize = ArraySize(g_aQueue)
+		if (iQueueSize <= 0)
+			return
 	}
 
-	// Modo Secuencial del 1 al 30
-	new current = get_pcvar_num(pcvar_next);
-	
-	if (current >= 1 && current < 30)
+	new iPick = random_num(0, iQueueSize - 1)
+	new szSound[MAX_SOUND_LEN]
+	ArrayGetString(g_aQueue, iPick, szSound, charsmax(szSound))
+
+	// Evita repetir inmediatamente la ultima pista al iniciar un nuevo ciclo
+	if (iQueueSize > 1 && g_szLastSound[0] != EOS && equali(szSound, g_szLastSound))
 	{
-		set_cvar_num("next_music", current + 1);
+		iPick = (iPick + random_num(1, iQueueSize - 1)) % iQueueSize
+		ArrayGetString(g_aQueue, iPick, szSound, charsmax(szSound))
+	}
+
+	new bool:bIsWav = HasExtension(szSound, ".wav")
+	for (new i = 0; i < pnum; i++)
+	{
+		if (bIsWav)
+			client_cmd(players[i], "stopsound; spk ^"%s/%s^"", SOUND_SUBDIR, szSound)
+		else
+			client_cmd(players[i], "mp3 stop; mp3 play ^"sound/%s/%s^"", SOUND_SUBDIR, szSound)
+	}
+
+	ArrayDeleteItem(g_aQueue, iPick)
+	copy(g_szLastSound, charsmax(g_szLastSound), szSound)
+
+	if (ArraySize(g_aQueue) == 0)
+	{
+		// Se reprodujeron todas las pistas: reiniciar ciclo aleatorio completo
+		ArrayClear(g_aPlayed)
+		RefillQueue()
 	}
 	else
 	{
-		// Si llega a 30 o tiene un valor inválido, reinicia la secuencia en 1
-		set_cvar_num("next_music", 1);
+		ArrayPushString(g_aPlayed, szSound)
 	}
-	
-	p_music_win();
-	return PLUGIN_CONTINUE;
+
+	SaveState()
 }
+
+LoadSounds()
+{
+	new szConfigsDir[128], szFilePath[192]
+	get_configsdir(szConfigsDir, charsmax(szConfigsDir))
+	formatex(szFilePath, charsmax(szFilePath), "%s/%s", szConfigsDir, CONFIG_FILE)
+
+	if (!file_exists(szFilePath))
+	{
+		log_amx("%L", LANG_SERVER, "ERS_CFG_NOT_FOUND", szFilePath)
+		return
+	}
+
+	new hFile = fopen(szFilePath, "rt")
+	if (!hFile)
+	{
+		log_amx("%L", LANG_SERVER, "ERS_CFG_OPEN_ERR", szFilePath)
+		return
+	}
+
+	new szLine[MAX_SOUND_LEN], szFullPath[128], szWavPath[128]
+
+	while (!feof(hFile))
+	{
+		fgets(hFile, szLine, charsmax(szLine))
+		trim(szLine)
+
+		if (szLine[0] == EOS || szLine[0] == ';' || szLine[0] == '#' || (szLine[0] == '/' && szLine[1] == '/'))
+			continue
+
+		remove_quotes(szLine)
+		trim(szLine)
+
+		if (szLine[0] == EOS)
+			continue
+
+		strtolower(szLine)
+
+		if (TrieKeyExists(g_tValidSounds, szLine))
+			continue
+
+		formatex(szFullPath, charsmax(szFullPath), "sound/%s/%s", SOUND_SUBDIR, szLine)
+
+		if (!file_exists(szFullPath))
+		{
+			log_amx("%L", LANG_SERVER, "ERS_SND_NOT_FOUND", szFullPath)
+			continue
+		}
+
+		if (HasExtension(szLine, ".mp3"))
+		{
+			precache_generic(szFullPath)
+		}
+		else if (HasExtension(szLine, ".wav"))
+		{
+			formatex(szWavPath, charsmax(szWavPath), "%s/%s", SOUND_SUBDIR, szLine)
+			precache_sound(szWavPath)
+		}
+		else
+		{
+			log_amx("%L", LANG_SERVER, "ERS_SND_BAD_FORMAT", szLine)
+			continue
+		}
+
+		ArrayPushString(g_aSounds, szLine)
+		TrieSetCell(g_tValidSounds, szLine, 1)
+	}
+
+	fclose(hFile)
+	g_iTotalSounds = ArraySize(g_aSounds)
+
+	if (!g_iTotalSounds)
+		log_amx("%L", LANG_SERVER, "ERS_NO_VALID_SOUNDS", szFilePath)
+}
+
+LoadStateAndBuildQueue()
+{
+	if (!g_iTotalSounds)
+		return
+
+	new Trie:tPlayed = TrieCreate()
+	g_szLastSound[0] = EOS
+
+	if (file_exists(g_szStateFile))
+	{
+		new hFile = fopen(g_szStateFile, "rt")
+		if (hFile)
+		{
+			new szLine[MAX_SOUND_LEN + 8]
+			while (!feof(hFile))
+			{
+				fgets(hFile, szLine, charsmax(szLine))
+				trim(szLine)
+
+				if (szLine[0] == EOS)
+					continue
+
+				if (equal(szLine, "@LAST:", 6))
+				{
+					copy(g_szLastSound, charsmax(g_szLastSound), szLine[6])
+					strtolower(g_szLastSound)
+					continue
+				}
+
+				strtolower(szLine)
+
+				if (TrieKeyExists(g_tValidSounds, szLine) && !TrieKeyExists(tPlayed, szLine))
+				{
+					TrieSetCell(tPlayed, szLine, 1)
+					ArrayPushString(g_aPlayed, szLine)
+				}
+			}
+			fclose(hFile)
+		}
+	}
+
+	new szSound[MAX_SOUND_LEN]
+	for (new i = 0; i < g_iTotalSounds; i++)
+	{
+		ArrayGetString(g_aSounds, i, szSound, charsmax(szSound))
+		if (!TrieKeyExists(tPlayed, szSound))
+			ArrayPushString(g_aQueue, szSound)
+	}
+
+	TrieDestroy(tPlayed)
+
+	if (ArraySize(g_aQueue) == 0)
+	{
+		ArrayClear(g_aPlayed)
+		RefillQueue()
+		SaveState()
+	}
+}
+
+RefillQueue()
+{
+	ArrayClear(g_aQueue)
+	new szSound[MAX_SOUND_LEN]
+	for (new i = 0; i < g_iTotalSounds; i++)
+	{
+		ArrayGetString(g_aSounds, i, szSound, charsmax(szSound))
+		ArrayPushString(g_aQueue, szSound)
+	}
+}
+
+SaveState()
+{
+	new hFile = fopen(g_szStateFile, "wt")
+	if (!hFile)
+		return
+
+	fprintf(hFile, "@LAST:%s^n", g_szLastSound)
+
+	new iPlayedCount = ArraySize(g_aPlayed)
+	new szSound[MAX_SOUND_LEN]
+	for (new i = 0; i < iPlayedCount; i++)
+	{
+		ArrayGetString(g_aPlayed, i, szSound, charsmax(szSound))
+		fprintf(hFile, "%s^n", szSound)
+	}
+
+	fclose(hFile)
+}
+
+stock bool:HasExtension(const szFile[], const szExt[])
+{
+	new iFileLen = strlen(szFile)
+	new iExtLen = strlen(szExt)
+	if (iFileLen <= iExtLen)
+		return false
+
+	return bool:equali(szFile[iFileLen - iExtLen], szExt)
+}
+
+stock bool:IsPugLoaded()
+{
+	return (get_xvar_id("pug_status") != -1 && get_xvar_id("pug_stage") != -1)
+}
+
+stock bool:IsPugLive()
+{
+	new idStatus = get_xvar_id("pug_status")
+	new idStage = get_xvar_id("pug_stage")
+	if (idStatus == -1 || idStage == -1)
+		return false
+
+	if (get_xvar_num(idStatus) != PUG_STATUS_LIVE)
+		return false
+
+	new iStage = get_xvar_num(idStage)
+	return (iStage == PUG_STAGE_FIRSTHALF || iStage == PUG_STAGE_SECONDHALF || iStage == PUG_STAGE_OVERTIME)
+}
+/* AMXX-Studio Notes - DO NOT MODIFY BELOW HERE
+*{\\ rtf1\\ ansi\\ ansicpg1252\\ deff0\\ deflang3082{\\ fonttbl{\\ f0\\ fnil Tahoma;}}\n\\ viewkind4\\ uc1\\ pard\\ f0\\ fs16 \n\\ par }
+*/
